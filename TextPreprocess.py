@@ -112,7 +112,7 @@ def lang_detection():
             if detect(row['ustories']) != 'en':
                 df.drop(index, inplace=True)
         except:
-            print(row['ustories'])
+            df.drop(index, inplace=True)
 
 
 def text_preprocess():
@@ -132,8 +132,8 @@ def main():
 
     global df
     start_time = time.time()
-    df = pd.read_csv('hotel_reviews.csv')
-    # df = pd.read_csv('amazon_alexa.tsv', delimiter='\t')
+    # df = pd.read_csv('hotel_reviews.csv')
+    df = pd.read_csv('apple-ipod-touch-third-generation-8gb.data')
     print("--- %s seconds to read the file ---" % (time.time() -
                                                    start_time))
 
