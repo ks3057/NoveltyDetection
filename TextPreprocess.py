@@ -20,6 +20,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 import time
+from langdetect import detect
 
 df = ""
 wordnet_lemmatizer = WordNetLemmatizer()
@@ -99,8 +100,19 @@ def lemma():
     df['stories'] = df['stories'].apply(
         lambda li: [wordnet_lemmatizer.lemmatize(w, get_tag(w)) for
                     w, _ in li])
-    df.to_csv('preprocessed_text.csv', index=None,
+
+    df['stories'] = df['stories'].apply(' '.join)
+    df.to_csv('preprocessed_text_hr_temp.csv', index=None,
               header=True)
+
+
+def lang_detection():
+    for index, row in df.iterrows():
+        try:
+            if detect(row['ustories']) != 'en':
+                df.drop(index, inplace=True)
+        except:
+            print(row['ustories'])
 
 
 def text_preprocess():
@@ -109,6 +121,7 @@ def text_preprocess():
     :return: None
     """
     lower_case()
+    lang_detection()
     tokenize()
     stop_words()
     pos_tags()
@@ -119,19 +132,18 @@ def main():
 
     global df
     start_time = time.time()
-    df = pd.read_csv('novelty_avg.csv')
+    df = pd.read_csv('hotel_reviews.csv')
+    # df = pd.read_csv('amazon_alexa.tsv', delimiter='\t')
     print("--- %s seconds to read the file ---" % (time.time() -
                                                    start_time))
 
-    df["ustories"] = df["role"] + " " + df["feature"] + " " + df["benefit"]
+    # df["ustories"] = df["role"] + " " + df["feature"] + " " + df["benefit"]
     # df["ustories"] = df["feature"] + " " + df["benefit"]
 
     start_time = time.time()
     text_preprocess()
     print("--- %s seconds for text preprocessing ---" % (time.time() -
                                                          start_time))
-
-
 
 
 if __name__ == '__main__':

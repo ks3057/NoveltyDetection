@@ -1,4 +1,4 @@
-rid,uid,role,feature,benefit,novelty_avg
+rid,uid,role,feature,benefit,category,novelty_avg
 11,5,worker,my smart home to be able to order delivery food by simple voice command,I can prepare dinner easily after a long day at work,Health,4.0000
 12,5,home occupant,my smart home to turn on certain lights at dusk,I can come home to a well-lit house,Energy,1.5000
 13,5,worker,my smart home to sync with my biorhythm app and turn on some music that might suit my mood when I arrive home from work,I can be relaxed,Entertainment,3.2500
