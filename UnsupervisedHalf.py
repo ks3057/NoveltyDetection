@@ -8,13 +8,9 @@ Author: Kirtana Suresh <ks3057@rit.edu>
 Course: SWEN 789 01
 
 Description:
-Supervised classification of Novelty
+Contains unsupervised methods for Novelty Detection:
+KMeans, DBSCAN, Mean Shift
 
-According to workers, the number of novel ideas in DB:
-0    1888
-1     995
-
-where 0 = novelty rating < 4 and 1 >= 4
 """
 
 
@@ -24,10 +20,11 @@ import math
 import collections
 import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.cluster import DBSCAN
 from scipy import spatial
+from sklearn.model_selection import train_test_split
 
 df = ""
+distance_threshold = 0
 
 
 def helper(x):
@@ -129,21 +126,22 @@ def vector(idf_dict):
 
 
 def kmeans():
+    X_train, X_test, y_train, y_test = train_test_split(df, df['stories'],
+                                                  test_size=0.33)
+
     # cluster the data
-    X = df["vector"].values
+    X = X_train["vector"].values
     X = np.stack(X, axis=0)
-    # km = KMeans(n_clusters=8, init='k-means++')
-    km = KMeans(n_clusters=8)
+    km = KMeans(n_clusters=8, init='k-means++')
+    # km = KMeans(n_clusters=8)
     km = km.fit(X)
     centroids = km.cluster_centers_
 
     cluster_map = pd.DataFrame()
-    # cluster_map['ids'] = df.rid.values
-    cluster_map['reviews'] = df['ustories']
-    cluster_map['vector'] = df.vector.values
+    cluster_map['reviews'] = X_train['ustories']
+    cluster_map['vector'] = X_train.vector.values
     cluster_map['cluster'] = km.labels_
-    cluster_map['stories'] = df['stories']
-    # cluster_map['novelty'] = df.novelty_avg.values
+    cluster_map['stories'] = X_train['stories']
 
     for i in range(0, 8):
         cosine_distances = []
@@ -157,52 +155,30 @@ def kmeans():
         for _, row in cluster_map[cluster_map.cluster == i].iterrows():
             sse = spatial.distance.cosine(row['vector'], centroids[i])
             words = words + row['stories']
-            if sse > 0.98:
+            if sse > distance_threshold:
                 print(row['reviews'])
             cosine_distances.append(sse)
         print(collections.Counter(words).most_common(10))
-        print("*********************")
 
-
-def dbscan():
-    X = df["vector"].values
-    X = np.stack(X, axis=0)
-    dbs = DBSCAN(eps=0.9, min_samples=2, metric='cosine').fit(X)
-    print("number of labels:", collections.Counter(dbs.labels_))
-    # print(clustering.labels_)
-    cluster_map = pd.DataFrame()
-    # cluster_map['ids'] = df.rid.values
-    cluster_map['reviews'] = df['stories']
-    cluster_map['vector'] = df.vector.values
-    cluster_map['cluster'] = dbs.labels_
-    cluster_map['stories'] = df['stories']
-    # cluster_map['novelty'] = df.novelty_avg.values
-
-    words = []
-    print("number of points in cluster", len(cluster_map[cluster_map.cluster
-                                                         == -1]))
-    for _, row in cluster_map[cluster_map.cluster == -1].iterrows():
-        words = words + row['stories']
-        print(row['reviews'])
-    print(collections.Counter(words).most_common(10))
-    print("*********************")
+    for _, row in X_test.iterrows():
+        cosine_distances = []
+        for centroid in centroids:
+            sse = spatial.distance.cosine(row['vector'], centroid)
+            cosine_distances.append(sse)
+        if min(cosine_distances) > distance_threshold:
+            print(row['ustories'])
 
 
 def main():
-    global df
+    global df, distance_threshold
     start_time = time.time()
-    # df = pd.read_csv('preprocessed_text_temp.csv')
-    df = pd.read_csv('preprocessed_text_hr_temp.csv')
-    # df = pd.read_csv('preprocessed_text_alexa_temp.csv', delimiter='\t')
-    # df['storiescopy'] = df['stories']
-    # print(df['stories'])
-    # df.dropna(inplace=True)
+    distance_threshold = 0.98
+    df = pd.read_csv('preprocessed_text_temp.csv')
     print("--- %s seconds to read the file ---" % (time.time() -
                                                    start_time))
 
     vector(tf_idf())
     kmeans()
-    dbscan()
 
 
 if __name__ == '__main__':

@@ -26,6 +26,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from scipy import spatial
+from sklearn.cluster import MeanShift
 
 df = ""
 
@@ -188,11 +189,18 @@ def dbscan():
     print("*********************")
 
 
+def meanshift():
+    X = df["vector"].values
+    X = np.stack(X, axis=0)
+    ms = MeanShift().fit(X)
+    print("number of labels:", collections.Counter(ms.labels_))
+
+
 def main():
     global df
     start_time = time.time()
     # df = pd.read_csv('preprocessed_text_temp.csv')
-    df = pd.read_csv('preprocessed_text_hr_temp.csv')
+    df = pd.read_csv('preprocessed_text_temp.csv')
     # df = pd.read_csv('preprocessed_text_alexa_temp.csv', delimiter='\t')
     # df['storiescopy'] = df['stories']
     # print(df['stories'])
@@ -201,9 +209,9 @@ def main():
                                                    start_time))
 
     vector(tf_idf())
-    kmeans()
-    dbscan()
-
+    # kmeans()
+    # dbscan()
+    meanshift()
 
 if __name__ == '__main__':
     main()
