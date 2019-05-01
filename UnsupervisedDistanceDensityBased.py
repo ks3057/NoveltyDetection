@@ -1,14 +1,15 @@
 __author__ = "Kirtana Suresh"
 
 """
-File: Supervised.py
+File: UnsupervisedDistanceDensityBased.py
 
 Author: Kirtana Suresh <ks3057@rit.edu>
 
 Course: SWEN 789 01
 
 Description:
-Supervised classification of Novelty
+Contains unsupervised methods for Novelty Detection:
+KMeans, DBSCAN, Mean Shift
 
 According to workers, the number of novel ideas in DB:
 0    1888
@@ -26,12 +27,42 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from scipy import spatial
+import itertools
 from sklearn.cluster import MeanShift
+from sklearn.neighbors import NearestNeighbors
+import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score
+import argparse
+
 
 df = ""
+f = open("unsupervised_novelty.txt", "w")
+calculated_novelty = set()
+
+
+def cmdline_input():
+    """
+    Takes the command line input from the user as program arguments.
+    :return: A Namespace object
+    """
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--calculateEpsilon', action='store_true')
+
+    parser.add_argument('--meanShift', action='store_true')
+
+    args = parser.parse_args()
+
+    return args
 
 
 def helper(x):
+    """
+    Helper function for TF
+    :param x: user stories to be split
+    :return: list of user words
+    """
     try:
         return x.split()
     except:
@@ -76,6 +107,10 @@ def idf():
 
 
 def idf_col():
+    """
+    Sums IDF of each document
+    :return: IDF dict
+    """
     idf_dict = idf()
     df['idf'] = df['tf'].apply(lambda d: {word: idf_dict[word]
                                          for word in d.keys()})
@@ -129,24 +164,40 @@ def vector(idf_dict):
                         for word, idfval in idf_dict.items()]))
 
 
+def classify():
+    """
+    0 = novelty rating < 4 and 1 >= 4
+    :return: None
+    """
+    df['class'] = df['novelty_avg'].apply(lambda v: 1 if v >= 4 else 0)
+
+
 def kmeans():
+    """
+    Usupervised K Means ++ Novelty Detection
+    :return:
+    """
     # cluster the data
+    k = 8
     X = df["vector"].values
     X = np.stack(X, axis=0)
     # km = KMeans(n_clusters=8, init='k-means++')
-    km = KMeans(n_clusters=8)
+    km = KMeans(n_clusters=k)
     km = km.fit(X)
     centroids = km.cluster_centers_
 
     cluster_map = pd.DataFrame()
-    # cluster_map['ids'] = df.rid.values
+    cluster_map['rid'] = df.rid.values
     cluster_map['reviews'] = df['ustories']
     cluster_map['vector'] = df.vector.values
     cluster_map['cluster'] = km.labels_
     cluster_map['stories'] = df['stories']
-    # cluster_map['novelty'] = df.novelty_avg.values
 
-    for i in range(0, 8):
+    silhouette_avg = silhouette_score(X, km.labels_)
+    print("For n_clusters =", len(km.labels_),
+          "The average silhouette_score is :", silhouette_avg)
+
+    for i in range(0, k):
         cosine_distances = []
         words = []
         length_of_cluster = len(cluster_map[cluster_map.cluster == i])
@@ -158,60 +209,136 @@ def kmeans():
         for _, row in cluster_map[cluster_map.cluster == i].iterrows():
             sse = spatial.distance.cosine(row['vector'], centroids[i])
             words = words + row['stories']
-            if sse > 0.98:
-                print(row['reviews'])
+            if sse > 0.9:
+                f.write(row['reviews'])
+                f.write('\n')
+                calculated_novelty.add(row['rid'])
             cosine_distances.append(sse)
         print(collections.Counter(words).most_common(10))
-        print("*********************")
+
+    match = set(df['rid'].loc[df['class'] == 1]).intersection(
+        calculated_novelty)
+    print("accuracy:", 100 * len(match) / 995)
 
 
 def dbscan():
+    """
+    Usupervised DBSCAN Novelty Detection
+    :return:
+    """
     X = df["vector"].values
     X = np.stack(X, axis=0)
-    dbs = DBSCAN(eps=0.9, min_samples=2, metric='cosine').fit(X)
+    dbs = DBSCAN(eps=0.9, min_samples=21, metric='cosine').fit(X)
+    labels = collections.Counter(dbs.labels_)
+
+    silhouette_avg = silhouette_score(X, dbs.labels_)
+    print("For n_clusters =", len(labels),
+          "The average silhouette_score is :", silhouette_avg)
+
     print("number of labels:", collections.Counter(dbs.labels_))
-    # print(clustering.labels_)
     cluster_map = pd.DataFrame()
-    # cluster_map['ids'] = df.rid.values
-    cluster_map['reviews'] = df['stories']
+    cluster_map['stories'] = df['stories']
     cluster_map['vector'] = df.vector.values
     cluster_map['cluster'] = dbs.labels_
-    cluster_map['stories'] = df['stories']
-    # cluster_map['novelty'] = df.novelty_avg.values
+    cluster_map['ustories'] = df['ustories']
+
+    for key in labels.keys():
+        if key != -1:
+            list1 = cluster_map['stories'].loc[cluster_map['cluster'] ==
+                                             key].tolist()
+            list2 = list(itertools.chain.from_iterable(list1))
+            print(collections.Counter(list2).most_common(10))
+            print("*********************")
 
     words = []
     print("number of points in cluster", len(cluster_map[cluster_map.cluster
                                                          == -1]))
     for _, row in cluster_map[cluster_map.cluster == -1].iterrows():
         words = words + row['stories']
-        print(row['reviews'])
+        print(row['ustories'])
+        f.write(row['ustories'])
+        f.write('\n')
     print(collections.Counter(words).most_common(10))
     print("*********************")
 
 
 def meanshift():
+    """
+    Usupervised Mean Shift Novelty Detection
+    :return:
+    """
     X = df["vector"].values
     X = np.stack(X, axis=0)
     ms = MeanShift().fit(X)
-    print("number of labels:", collections.Counter(ms.labels_))
+    labels = collections.Counter(ms.labels_)
+    print("number of labels:", labels)
+    silhouette_avg = silhouette_score(X, ms.labels_)
+    print("For n_clusters =", len(labels),
+          "The average silhouette_score is :", silhouette_avg)
+
+    cluster_map = pd.DataFrame()
+    cluster_map['reviews'] = df['stories']
+    cluster_map['vector'] = df.vector.values
+    cluster_map['cluster'] = ms.labels_
+    cluster_map['ustories'] = df['ustories']
+    cluster_map['rid'] = df['rid']
+
+    cn = set()
+    for key in labels.keys():
+        length_of_cluster = len(cluster_map[cluster_map.cluster == key])
+        if length_of_cluster == 1:
+            cn.add(cluster_map[cluster_map.cluster == key]['rid'].iloc[0])
+            f.write(cluster_map[cluster_map.cluster == key]['ustories'].iloc[0])
+            f.write('\n')
+        else:
+            list1 = cluster_map['reviews'].loc[cluster_map['cluster'] ==
+                                               key].tolist()
+            list2 = list(itertools.chain.from_iterable(list1))
+            print(collections.Counter(list2).most_common(10))
+            print("*********************")
+
+    match = set(df['rid'].loc[df['class'] == 1]).intersection(
+        calculated_novelty)
+    print("accuracy:", 100 * len(match) / 995)
+
+
+def calculate_epsilon():
+    """
+    Calculate epsilon for DBSCAN
+    :return:
+    """
+    X = df["vector"].values
+    X = np.stack(X, axis=0)
+    ns = 22
+    nbrs = NearestNeighbors(n_neighbors=ns, metric='cosine').fit(X)
+    distances, indices = nbrs.kneighbors(X)
+    distanceDec = sorted(distances[:, ns - 1], reverse=True)
+    plt.plot(list(range(1, len(df) + 1)), distanceDec)
+    plt.grid()
+    plt.show()
 
 
 def main():
+    """
+    Responsible for handling all function calls
+    :return: None
+    """
     global df
     start_time = time.time()
-    # df = pd.read_csv('preprocessed_text_temp.csv')
     df = pd.read_csv('preprocessed_text_temp.csv')
-    # df = pd.read_csv('preprocessed_text_alexa_temp.csv', delimiter='\t')
-    # df['storiescopy'] = df['stories']
-    # print(df['stories'])
-    # df.dropna(inplace=True)
     print("--- %s seconds to read the file ---" % (time.time() -
                                                    start_time))
 
+    classify()
     vector(tf_idf())
-    # kmeans()
-    # dbscan()
-    meanshift()
+    args = cmdline_input()
+    if args.calculateEpsilon:
+        calculate_epsilon()
+    kmeans()
+    dbscan()
+    if args.meanShift:
+        meanshift()
+
 
 if __name__ == '__main__':
     main()

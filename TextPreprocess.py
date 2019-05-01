@@ -102,11 +102,15 @@ def lemma():
                     w, _ in li])
 
     df['stories'] = df['stories'].apply(' '.join)
-    df.to_csv('preprocessed_text_hr_temp.csv', index=None,
+    df.to_csv('preprocessed_text_temp.csv', index=None,
               header=True)
 
 
 def lang_detection():
+    """
+    If language is not english, drop the document from the dataset
+    :return:
+    """
     for index, row in df.iterrows():
         try:
             if detect(row['ustories']) != 'en':
@@ -132,13 +136,12 @@ def main():
 
     global df
     start_time = time.time()
-    # df = pd.read_csv('hotel_reviews.csv')
-    df = pd.read_csv('apple-ipod-touch-third-generation-8gb.data')
+    df = pd.read_csv('novelty_avg.csv', encoding="ISO-8859-1")
     print("--- %s seconds to read the file ---" % (time.time() -
                                                    start_time))
 
     # df["ustories"] = df["role"] + " " + df["feature"] + " " + df["benefit"]
-    # df["ustories"] = df["feature"] + " " + df["benefit"]
+    df["ustories"] = df["feature"] + " " + df["benefit"]
 
     start_time = time.time()
     text_preprocess()

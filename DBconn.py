@@ -1,5 +1,18 @@
 __author__ = "KirtanaSuresh"
 
+"""
+File: DBconn.py
+
+Author: Kirtana Suresh <ks3057@rit.edu>
+
+Course: SWEN 789 01
+
+Description:
+Connects to the database and calculates average novelty rating of each 
+requirement
+
+"""
+
 import mysql.connector
 from mysql.connector import errorcode
 import csv

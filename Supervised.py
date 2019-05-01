@@ -9,7 +9,7 @@ Course: SWEN 789 01
 
 Description:
 Supervised classification of Novelty.
-Using classifiers Naive Bayes and Decision Tree
+Using classifiers Naive Bayes, KNN and Decision Tree
 Using oversampling of minority class 
 and AdaBoost if specified by user.
 
@@ -31,7 +31,9 @@ from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import RandomOverSampler
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import AdaBoostClassifier
+from sklearn.neighbors import KNeighborsClassifier
 import argparse
+import matplotlib.pyplot as plt
 
 df = ""
 
@@ -52,6 +54,11 @@ def cmdline_input():
 
 
 def classify():
+    """
+    Classifies the novelty averages as 1 or 0.
+    0 = novelty rating < 4 and 1 >= 4
+    :return: None
+    """
     df['class'] = df['novelty_avg'].apply(lambda v: 1 if v >= 4 else 0)
 
 
@@ -172,6 +179,70 @@ def adaboost():
     print("accuracy%:", 100 * accuracy / 10, "f1-score%", 100 * f1_score / 10)
 
 
+def knn():
+    """
+    Which value of k suits the dataset the best?
+    :return:
+    """
+    X_train, X_test, y_train, y_test = train_test_split(df, df['class'],
+                                                        test_size=0.4,
+                                                        random_state=4)
+    vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
+    X_train = vectorizer.fit_transform(X_train['storiescopy'])
+
+    k_range = range(1, 26)
+    scores = []
+    for k in k_range:
+        knn = KNeighborsClassifier(n_neighbors=k)
+        knn.fit(X_train, y_train)
+        y_pred = knn.predict(vectorizer.transform(X_test['storiescopy']))
+        scores.append(met.accuracy_score(y_test, y_pred))
+
+    plt.plot(k_range, scores)
+    plt.xlabel('Value of K for KNN')
+    plt.ylabel('Testing Accuracy')
+    plt.grid()
+    plt.show()
+
+
+def knn_cross():
+    """
+    KNN Classifier using oversampling of minority class
+    :return:
+    """
+    skf = StratifiedKFold(n_splits=10)
+    precision = 0
+    recall = 0
+    accuracy = 0
+    f1_score = 0
+    for train_index, test_index in skf.split(df, df['class']):
+        train = df.loc[train_index.tolist(), :]
+        X_train, X_test, y_train, y_test = train_test_split(train,
+                                                            train['class'],
+                                                            test_size=0.3)
+
+        vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
+        X_train = vectorizer.fit_transform(X_train['storiescopy'])
+
+        ros = RandomOverSampler(random_state=0)
+        X_resampled, y_resampled = ros.fit_resample(X_train, y_train)
+
+        k = 8
+        knn = KNeighborsClassifier(n_neighbors=k)
+        # knn.fit(X_train, y_train)
+        knn.fit(X_resampled, y_resampled)
+        y_pred = knn.predict(vectorizer.transform(X_test['storiescopy']))
+
+        precision += met.precision_score(y_test, y_pred)
+        accuracy += met.accuracy_score(y_test, y_pred)
+        recall += met.recall_score(y_test, y_pred)
+        f1_score += met.f1_score(y_test, y_pred)
+
+    print("KNN Novelty Detection")
+    print("precision%:", 100 * precision / 10, "recall%:", 100 * recall / 10)
+    print("accuracy%:", 100 * accuracy / 10, "f1-score%", 100 * f1_score / 10)
+
+
 def main():
     """
     Responsible for handling all function calls
@@ -193,6 +264,10 @@ def main():
     print()
     if args.boosting:
         adaboost()
+    print()
+    knn_cross()
+    print()
+    knn()
 
 
 if __name__ == '__main__':
